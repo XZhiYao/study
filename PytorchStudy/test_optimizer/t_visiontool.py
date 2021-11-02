@@ -193,6 +193,6 @@ if __name__ == '__main__':
     vis.images(b_x, nrow=16, win="my batch image", env="MyimagePlot",
               opts=dict(title="a batch image"))
 
-    texts = """A flexible tool for creating, organizing, and sharing visualizations of live, rich data. 
+    texts = """A flexible tool for creating, organizing, and sharing visualizations of live, rich data.
     Supports Torch and Numpy."""
     vis.text(texts, win="text plot", env="MyimagePlot", opts=dict(title="vision text"))
