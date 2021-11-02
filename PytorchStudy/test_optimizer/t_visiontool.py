@@ -10,7 +10,7 @@ import hiddenlayer as hl
 from torchviz import make_dot
 from tensorboardX import SummaryWriter
 import time
-
+from visdom import Visdom
 
 class ConvNet(nn.Module):
     def __init__(self):
@@ -103,7 +103,7 @@ def save_module_img():
 
 
 def train_tensorboardX(MyConvnet):
-    SumWriter = SummaryWriter(logdir="../Log")
+    SumWriter = SummaryWriter(logdir="../Log/tensorboardX")
     optimizer = torch.optim.Adam(MyConvnet.parameters(), lr=0.0003)
     loss_func = nn.CrossEntropyLoss()
     train_loss = 0
@@ -135,7 +135,7 @@ def train_tensorboardX(MyConvnet):
                     SumWriter.add_histogram(name, param.data.numpy(), niter)
 
 
-def train_HiddenLayer():
+def train_HiddenLayer(MyConvnet):
     optimizer = torch.optim.Adam(MyConvnet.parameters(), lr=0.0003)
     loss_func = nn.CrossEntropyLoss()
 
@@ -176,4 +176,23 @@ if __name__ == '__main__':
     train_loader, test_data_x, test_data_y = prepare_dataset()
     MyConvnet = ConvNet()
     print(MyConvnet)
+    # save_module_img()
+    # train_tensorboardX(MyConvnet)
+    # train_HiddenLayer(MyConvnet)
+    for step, (b_x, b_y) in enumerate(train_loader):
+        if step > 0:
+            break
 
+    print(b_x.shape)
+    print(b_y.shape)
+
+    vis = Visdom()
+    vis.image(b_x[0, :, :, :], win="one image", env="MyimagePlot",
+              opts=dict(title="a  single image"))
+
+    vis.images(b_x, nrow=16, win="my batch image", env="MyimagePlot",
+              opts=dict(title="a batch image"))
+
+    texts = """A flexible tool for creating, organizing, and sharing visualizations of live, rich data. 
+    Supports Torch and Numpy."""
+    vis.text(texts, win="text plot", env="MyimagePlot", opts=dict(title="vision text"))
