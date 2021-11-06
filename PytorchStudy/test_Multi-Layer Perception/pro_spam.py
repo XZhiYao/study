@@ -80,19 +80,19 @@ def prepare_dataset():
     X_train_s = scales.fit_transform(X_train)
     X_test_s = scales.transform(X_test)
 
-    colname = spam.columns.values[:-1]
-    plt.figure(figsize=(20, 14))
-    for ii in range(len(colname)):
-        plt.subplot(7, 9, ii + 1)
-        sns.boxplot(x=y_train, y=X_train_s[:, ii])
-        plt.title(colname[ii])
+    # colname = spam.columns.values[:-1]
+    # plt.figure(figsize=(20, 14))
+    # for ii in range(len(colname)):
+    #     plt.subplot(7, 9, ii + 1)
+    #     sns.boxplot(x=y_train, y=X_train_s[:, ii])
+    #     plt.title(colname[ii])
+    #
+    # plt.subplots_adjust(hspace=0.4)
+    # plt.show()
+    return X_train, X_test, y_train, y_test
 
-    plt.subplots_adjust(hspace=0.4)
-    plt.show()
 
-
-if __name__ == '__main__':
-    mlpc = MLPclassifica()
+def view_module(mlpc):
     x = torch.randn(1, 57).requires_grad_(True)
     y = mlpc(x)
     Mymlpcvis = make_dot(y, params=dict(list(mlpc.named_parameters()) + [('x', x)]))
@@ -100,3 +100,51 @@ if __name__ == '__main__':
     Mymlpcvis.format = "png"
     Mymlpcvis.directory = "../Module/Mymlpcvis"
     Mymlpcvis.view()
+
+
+if __name__ == '__main__':
+    X_train, X_test, y_train, y_test = prepare_dataset()
+    mlpc = MLPclassifica()
+
+    scales = MinMaxScaler(feature_range=(0, 1))
+    X_train_s = scales.fit_transform(X_train)
+    X_test_s = scales.transform(X_test)
+
+    # X_train_nots = torch.from_numpy(X_train.astype(np.float32))
+    X_train_nots = torch.from_numpy(X_train_s.astype(np.float32))
+    y_train_t = torch.from_numpy(y_train.astype(np.int64))
+    # X_test_nots = torch.from_numpy(X_test.astype(np.float32))
+    X_test_nots = torch.from_numpy(X_test_s.astype(np.float32))
+    y_test_t = torch.from_numpy(y_test.astype(np.int64))
+    train_data_nots = Data.TensorDataset(X_train_nots, y_train_t)
+    train_nots_loader = Data.DataLoader(
+        dataset=train_data_nots,
+        batch_size=64,
+        shuffle=True,
+        num_workers=0,
+    )
+
+    optimizer = torch.optim.Adam(mlpc.parameters(), lr=0.01)
+    loss_func = nn.CrossEntropyLoss()
+    historyl = hl.History()
+    canvasl = hl.Canvas()
+    print_step = 25
+
+    for epoch in range(15):
+        for step, (b_x, b_y) in enumerate(train_nots_loader):
+            _, _, output = mlpc(b_x)
+            train_loss = loss_func(output, b_y)
+            optimizer.zero_grad()
+            train_loss.backward()
+            optimizer.step()
+            niter = epoch * len(train_nots_loader) + step + 1
+            if niter % print_step == 0:
+                _, _, output = mlpc(X_test_nots)
+                _, pre_lab = torch.max(output, 1)
+                print('pre_lab:\n', pre_lab)
+                test_accuracy = accuracy_score(y_test, pre_lab)
+                historyl.log(niter, train_loss=train_loss, test_accuracy=test_accuracy)
+
+                with canvasl:
+                    canvasl.draw_plot(historyl["train_loss"])
+                    canvasl.draw_plot(historyl["test_accuracy"])
