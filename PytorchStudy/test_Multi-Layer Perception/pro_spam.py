@@ -102,6 +102,40 @@ def view_module(mlpc):
     Mymlpcvis.view()
 
 
+def view_fc2_farward(test_fc2, y_test, mode="forward"):
+    if mode == "forward":
+        test_fc2_tsne = TSNE(n_components=2).fit_transform(test_fc2.data.numpy())
+        print('test_fc2_tsne.shape: ', test_fc2_tsne.shape)
+        print(min(test_fc2_tsne[:, 0] - 1), min(test_fc2_tsne[:, 0]), max(test_fc2_tsne[:, 0]))
+        plt.figure(figsize=(8, 6))
+        plt.xlim([min(test_fc2_tsne[:, 0] - 1), max(test_fc2_tsne[:, 0]) + 1])
+        plt.ylim([min(test_fc2_tsne[:, 1] - 1), max(test_fc2_tsne[:, 1]) + 1])
+        plt.plot(test_fc2_tsne[y_test == 0, 0], test_fc2_tsne[y_test == 0, 1], "bo", label="0")
+        plt.plot(test_fc2_tsne[y_test == 1, 1], test_fc2_tsne[y_test == 1, 0], "rd", label="1")
+        plt.legend()
+        plt.title("test_fc2_tsne")
+        plt.show()
+
+    if mode == "hook":
+        classifica = activation["classifica"].data.numpy()
+        print("classifica.shape: ", classifica.shape)
+        plt.figure(figsize=(8, 6))
+        plt.plot(classifica[y_test == 0, 0], classifica[y_test == 0, 1], "bo", label="0")
+        plt.plot(classifica[y_test == 1, 0], classifica[y_test == 1, 1], "rd", label="1")
+        plt.legend()
+        plt.title("classifica")
+        plt.show()
+
+
+
+activation = {}
+def get_activation(name):
+    def hook(model, input, output):
+        activation[name] = output.detach()
+
+    return hook
+
+
 if __name__ == '__main__':
     X_train, X_test, y_train, y_test = prepare_dataset()
     mlpc = MLPclassifica()
@@ -128,7 +162,7 @@ if __name__ == '__main__':
     loss_func = nn.CrossEntropyLoss()
     historyl = hl.History()
     canvasl = hl.Canvas()
-    print_step = 25
+    print_step = 300
 
     for epoch in range(15):
         for step, (b_x, b_y) in enumerate(train_nots_loader):
@@ -139,12 +173,17 @@ if __name__ == '__main__':
             optimizer.step()
             niter = epoch * len(train_nots_loader) + step + 1
             if niter % print_step == 0:
-                _, _, output = mlpc(X_test_nots)
+                mlpc.classifica.register_forward_hook(get_activation("classifica"))
+                _, test_fc2, output = mlpc(X_test_nots)
+                print("test_fc2.shape: ", test_fc2.shape, type(test_fc2))
                 _, pre_lab = torch.max(output, 1)
-                print('pre_lab:\n', pre_lab)
+                # print('pre_lab:\n', pre_lab)
                 test_accuracy = accuracy_score(y_test, pre_lab)
                 historyl.log(niter, train_loss=train_loss, test_accuracy=test_accuracy)
+                view_fc2_farward(test_fc2, y_test, mode="hook")
 
-                with canvasl:
-                    canvasl.draw_plot(historyl["train_loss"])
-                    canvasl.draw_plot(historyl["test_accuracy"])
+
+                # with canvasl:
+                #     canvasl.draw_plot(historyl["train_loss"])
+                #     canvasl.draw_plot(historyl["test_accuracy"])
+
