@@ -127,7 +127,6 @@ def view_fc2_farward(test_fc2, y_test, mode="forward"):
         plt.show()
 
 
-
 activation = {}
 def get_activation(name):
     def hook(model, input, output):
