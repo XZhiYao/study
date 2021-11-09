@@ -12,6 +12,7 @@ import torch.utils.data as Data
 from torchvision import transforms
 from torchvision.datasets import FashionMNIST
 
+
 class MyLeNet5(nn.Module):
     def __init__(self):
         super(MyLeNet5, self).__init__()
@@ -51,7 +52,71 @@ class MyLeNet5(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Linear(
-                in_features=32*6*6,
+                in_features=32 * 6 * 6,
+                out_features=256,
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=256,
+                out_features=128,
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=128,
+                out_features=10,
+            )
+        )
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = x.view(x.size(0), -1)
+        output = self.classifier(x)
+        return output
+
+
+class MyDilaLeNet5(nn.Module):
+    def __init__(self):
+        super(MyDilaLeNet5, self).__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=1,
+                out_channels=16,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                dilation=2,
+            ),
+            # (1, 28, 28) -> (16, 13, 13)
+            nn.ReLU(),
+            nn.AvgPool2d(
+                kernel_size=2,
+                stride=2,
+            ),
+            # (16, 26, 26) -> (16, 13, 13)
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=16,
+                out_channels=32,
+                kernel_size=3,
+                stride=1,
+                padding=0,
+                dilation=2,
+            ),
+            # (16, 13, 13) -> (32, 9, 9)
+            nn.ReLU(),
+            nn.AvgPool2d(
+                kernel_size=2,
+                stride=2,
+            ),
+            # (32, 9, 9) -> (32, 4, 4)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(
+                in_features=32*4*4,
                 out_features=256,
             ),
             nn.ReLU(),
@@ -106,6 +171,19 @@ def view_loss_and_acc(train_process):
     plt.xlabel("Epoch")
     plt.ylabel("Acc")
     plt.legend()
+
+    plt.show()
+
+
+def view_confusion_matrix(test_data_y, pre_lab, class_label):
+    conf_mat = confusion_matrix(test_data_y, pre_lab)
+    df_cm = pd.DataFrame(conf_mat, index=class_label, columns=class_label)
+    heatmap = sns.heatmap(df_cm, annot=True, fmt="d", cmap="YlGnBu")
+    heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right')
+    heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right')
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+
     plt.show()
 
 
@@ -132,7 +210,7 @@ def prepare_dataset():
     print("The train_loader num of batch are: ", len(train_loader))
 
     class_label = train_data.classes
-    class_label[0] = "T-shirt" # change class_label[0]: ('T-shirt/top') -> ('T-shirt')
+    class_label[0] = "T-shirt"  # change class_label[0]: ('T-shirt/top') -> ('T-shirt')
     # print('class_label: ', class_label)
     # view_dataset_batch(class_label, train_loader)
 
@@ -160,7 +238,7 @@ def train_model(model, traindataloader, train_rate, criterion, optimizer, num_ep
     val_acc_all = []
     since = time.time()
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs-1))
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
         train_loss = 0.0
         train_corrects = 0
@@ -226,29 +304,40 @@ if __name__ == '__main__':
     print("test_data_x.shape: ", test_data_x.shape)
     print("test_data_y.shape: ", test_data_y.shape)
 
-    mylenet5 = MyLeNet5()
-    print(mylenet5)
+    # mylenet5 = MyLeNet5()
+    # print(mylenet5)
 
-    optimizer = torch.optim.Adam(mylenet5.parameters(), lr=0.0003)
+    # optimizer = torch.optim.Adam(mylenet5.parameters(), lr=0.0003)
+    # criterion = nn.CrossEntropyLoss()
+    # mylenet5, train_process = train_model(mylenet5, train_loader, 0.8, criterion, optimizer, num_epochs=25)
+    #
+    # # view_MyLeNet5_loss_and_acc(train_process)
+    #
+    # mylenet5.eval()
+    # output = mylenet5(test_data_x)
+    # pre_lab = torch.argmax(output, 1)
+    # acc = accuracy_score(test_data_y, pre_lab)
+    # print("The predict acc on testing dataset: ", acc)
+    #
+    # # view_MyLeNet5_confusion_matrix(test_data_y, pre_lab, class_label)
+
+    mydilalenet5 = MyDilaLeNet5()
+    print(mydilalenet5)
+
+    optimizer = torch.optim.Adam(mydilalenet5.parameters(), lr=0.0003)
     criterion = nn.CrossEntropyLoss()
-    mylenet5, train_process = train_model(mylenet5, train_loader, 0.8, criterion, optimizer, num_epochs=25)
 
-    # view_loss_and_acc(train_process)
+    mydilalenet5, train_process = train_model(mydilalenet5, train_loader, 0.8, criterion, optimizer, num_epochs=25)
+    view_loss_and_acc(train_process)
 
-    mylenet5.eval()
-    output = mylenet5(test_data_x)
+    mydilalenet5.eval()
+    output = mydilalenet5(test_data_x)
     pre_lab = torch.argmax(output, 1)
     acc = accuracy_score(test_data_y, pre_lab)
     print("The predict acc on testing dataset: ", acc)
 
-    conf_mat = confusion_matrix(test_data_y, pre_lab)
-    df_cm = pd.DataFrame(conf_mat, index=class_label, columns=class_label)
-    heatmap = sns.heatmap(df_cm, annot=True, fmt="d", cmap="YlGnBu")
-    heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right')
-    heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right')
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    plt.show()
+    view_confusion_matrix(test_data_y, pre_lab, class_label)
+
 
 
 
