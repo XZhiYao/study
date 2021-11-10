@@ -67,6 +67,7 @@ def train(train_loader, mlp, optimizer, loss_func):
             train_loss_all.append(train_loss.item())
     return train_loss_all
 
+
 # define Method: Sequential
 class MLPmodel2(nn.Module):
     def __init__(self):

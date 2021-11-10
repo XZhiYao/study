@@ -1,3 +1,7 @@
+"""
+Test Tool: Visdom-pytorch
+Dataset: UCI-Iris
+"""
 import torch
 import numpy as np
 from visdom import Visdom

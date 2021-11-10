@@ -1,3 +1,7 @@
+"""
+Tset Tool: 1.PyTorchViz 2.TensorboardX 3.HiddenLayer
+Dataset: MNIST
+"""
 import torch
 import torch.nn as nn
 import torchvision
@@ -87,6 +91,7 @@ def prepare_dataset():
     return train_loader, test_data_x, test_data_y
 
 
+# test PyTorchViz: make_dot
 def save_module_img():
     # save network structure as image
     hl_graph = hl.build_graph(MyConvnet, torch.zeros([1, 1, 28, 28]))

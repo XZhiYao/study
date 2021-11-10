@@ -1,3 +1,7 @@
+"""
+Test Modudle: MLP-Regression
+Dataset: California housing price
+"""
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler

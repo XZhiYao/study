@@ -1,3 +1,7 @@
+"""
+Test Module: 1.LeNet5 2. Dilation LaNet5
+Dataset: FashionMNIST
+"""
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
