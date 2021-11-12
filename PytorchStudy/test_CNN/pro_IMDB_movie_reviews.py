@@ -92,6 +92,21 @@ def stop_stem_word(datalist, stop_words):
     return np.array(datalist_pre, dtype=object)
 
 
+def view_word_num_Freq(train_text, train_text_pre2, train_label, show=False):
+    traindata = pd.DataFrame({"train_text": train_text, "train_word": train_text_pre2, "train_label": train_label})
+    train_word_num = [len(text) for text in train_text_pre2]
+    traindata["train_word_num"] = train_word_num
+    plt.figure(figsize=(8, 5))
+    _ = plt.hist(train_word_num, bins=100)
+    plt.xlabel("Word Number")
+    plt.ylabel("Freq")
+
+    if show:
+        plt.show()
+
+    return traindata
+
+
 if __name__ == '__main__':
     path = "../Dataset/IMDB-movie-reviews/IMDB Dataset.csv"
     train_text, test_text, train_label, test_label = load_text_data(path)
@@ -114,13 +129,24 @@ if __name__ == '__main__':
     traindatasave.to_csv("../DataFrame/IMDB/imdb_train.csv", index=False)
     testdatasave.to_csv("../DataFrame/IMDB/imdb_test.csv", index=False)
 
-    traindata = pd.DataFrame({"train_text":train_text, "train_word":train_text_pre2, "train_label":train_label})
-    train_word_num = [len(text) for text in train_text_pre2]
-    traindata["train_word_num"] = train_word_num
-    plt.figure(figsize=(8, 5))
-    _ = plt.hist(train_word_num, bins=100)
-    plt.xlabel("Word Number")
-    plt.ylabel("Freq")
+    traindata = view_word_num_Freq(train_text, train_text_pre2, train_label, show=False)
+    plt.figure(figsize=(16, 8))
+    for ii in np.unique(train_label):
+        text = np.array(traindata.train_word[traindata.train_label == ii])
+        text = " ".join(np.concatenate(text))
+        plt.subplot(1, 2, ii+1)
+        wordcod = WordCloud(margin=5, width=1800, height=1000,
+                            max_words=500, min_font_size=5,
+                            background_color='white',
+                            max_font_size=250)
+        wordcod.generate_from_text(text)
+        plt.imshow(wordcod)
+        plt.axis("off")
+        if ii == 1:
+            plt.title("Positive")
+        else:
+            plt.title("Negative")
+        plt.subplots_adjust(wspace=0.05)
     plt.show()
 
 
