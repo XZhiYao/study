@@ -21,9 +21,32 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
-from torchtext import data
+from torchtext.legacy import data
 from torchtext.vocab import Vectors, GloVe
 from sklearn.model_selection import train_test_split
+
+
+class CNN_Text(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, n_filters, filter_sizes, output_dim, dropout, pad_idx):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
+        self.convs = nn.ModuleList([
+            nn.Conv2d(
+                in_channels=1,
+                out_channels=n_filters,
+                kernel_size=(fs, embedding_dim)
+            ) for fs in filter_sizes
+        ])
+        self.fc = nn.Linear(len(filter_sizes) * n_filters, output_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, text):
+        embedded = self.embedding(text)
+        embedded = embedded.unsqueeze(1)
+        conved = [F.relu(conv(embedded)).squeeze(3) for conv in self.convs]
+        pooled = [F.max_pool1d(conv, conv.shape[2]).squeeze(2) for conv in conved]
+        cat = self.dropout(torch.cat(pooled, dim=1))
+        return self.fc(cat)
 
 
 def load_text_data(path, state="csv"):
@@ -107,6 +130,71 @@ def view_word_num_Freq(train_text, train_text_pre2, train_label, show=False):
     return traindata
 
 
+def view_Negative_Positive_Reviews(train_label, traindata):
+    plt.figure(figsize=(16, 8))
+    for ii in np.unique(train_label):
+        text = np.array(traindata.train_word[traindata.train_label == ii])
+        text = " ".join(np.concatenate(text))
+        plt.subplot(1, 2, ii + 1)
+        wordcod = WordCloud(margin=5, width=1800, height=1000,
+                            max_words=500, min_font_size=5,
+                            background_color='white',
+                            max_font_size=250)
+        wordcod.generate_from_text(text)
+        plt.imshow(wordcod)
+        plt.axis("off")
+        if ii == 1:
+            plt.title("Positive")
+        else:
+            plt.title("Negative")
+        plt.subplots_adjust(wspace=0.05)
+    plt.show()
+
+
+def train_epoch(model, iterator, optimizer, criterion):
+    epoch_loss = 0
+    epoch_acc = 0
+    train_corrects = 0
+    train_num = 0
+    model.train()
+    for batch in iterator:
+        optimizer.zero_grad()
+        pre = model(batch.text[0]).squeeze(1)
+        loss = criterion(pre, batch.label.type(torch.FloatTensor))
+        pre_lab = torch.round(torch.sigmoid(pre))
+        train_corrects += torch.sum(pre_lab.long() == batch.label)
+        train_num += len(batch.label)
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
+
+    epoch_loss = epoch_loss / train_num
+    epoch_acc = train_corrects.double().item() / train_num
+
+    return epoch_loss, epoch_acc
+
+
+def evaluate(model, iterator, criterion):
+    epoch_loss = 0
+    epoch_acc = 0
+    train_corrects = 0
+    train_num = 0
+    model.eval()
+    with torch.no_grad():
+        for batch in iterator:
+            pre = model(batch.text[0]).squeeze(1)
+            loss = criterion(pre, batch.label.type(torch.FloatTensor))
+            pre_lab = torch.round(torch.sigmoid(pre))
+            train_corrects += torch.sum(pre_lab.long() == batch.label)
+            train_num += len(batch.label)
+            epoch_loss += loss.item()
+
+        epoch_loss = epoch_loss / train_num
+        epoch_acc = train_corrects.double().item() / train_num
+
+    return epoch_loss, epoch_acc
+
+
 if __name__ == '__main__':
     path = "../Dataset/IMDB-movie-reviews/IMDB Dataset.csv"
     train_text, test_text, train_label, test_label = load_text_data(path)
@@ -130,23 +218,76 @@ if __name__ == '__main__':
     testdatasave.to_csv("../DataFrame/IMDB/imdb_test.csv", index=False)
 
     traindata = view_word_num_Freq(train_text, train_text_pre2, train_label, show=False)
-    plt.figure(figsize=(16, 8))
-    for ii in np.unique(train_label):
-        text = np.array(traindata.train_word[traindata.train_label == ii])
-        text = " ".join(np.concatenate(text))
-        plt.subplot(1, 2, ii+1)
-        wordcod = WordCloud(margin=5, width=1800, height=1000,
-                            max_words=500, min_font_size=5,
-                            background_color='white',
-                            max_font_size=250)
-        wordcod.generate_from_text(text)
-        plt.imshow(wordcod)
-        plt.axis("off")
-        if ii == 1:
-            plt.title("Positive")
-        else:
-            plt.title("Negative")
-        plt.subplots_adjust(wspace=0.05)
-    plt.show()
+    # view_Negative_Positive_Reviews(train_label, traindata)
+
+    mytokenize = lambda x: x.split()
+    # Defines a general datatype
+    TEXT = data.Field(sequential=True, tokenize=mytokenize,
+                      include_lengths=True, use_vocab=True,
+                      batch_first=True, fix_length=200)
+    LABEL = data.Field(sequential=False, use_vocab=False,
+                       pad_token=None, unk_token=None)
+
+    train_test_fields = [
+        ("label", LABEL),
+        ("text", TEXT)
+    ]
+    traindata, testdata = data.TabularDataset.splits(
+        path="../DataFrame/IMDB", format="csv",
+        train="imdb_train.csv", fields=train_test_fields,
+        test="imdb_test.csv", skip_header=True
+    )
+
+    print(len(traindata), len(testdata))
+    ex0 = traindata.examples[0]
+    print(ex0)
+    print(ex0.text)
+
+    train_data, val_data = traindata.split(split_ratio=0.7)
+    print(len(train_data), len(val_data))
+
+    vec = Vectors("glove.6B.100d.txt", "../DataFrame/IMDB")
+    TEXT.build_vocab(train_data, max_size=20000, vectors=vec)
+    LABEL.build_vocab(train_data)
+
+    print(TEXT.vocab.freqs.most_common(n=10))
+    print("keyword num: ", len(TEXT.vocab.itos))
+    print("10 num:\n", TEXT.vocab.itos[0:10])
+    print("classifica label:", LABEL.vocab.freqs)
+
+    BATCH_SIZE = 32
+    train_iter = data.BucketIterator(train_data, batch_size=BATCH_SIZE)
+    val_iter = data.BucketIterator(val_data, batch_size=BATCH_SIZE)
+    test_iter = data.BucketIterator(testdata, batch_size=BATCH_SIZE)
+
+    for step, batch in enumerate(train_iter):
+        if step > 0:
+            break
+    print("classifica label:\n", batch.label)
+    print("data size:", batch.text[0].shape)
+    print("data sample:", len(batch.text[1]))
+
+    INPUT_DIM = len(TEXT.vocab)
+    EMBEDDING_DIM = 100
+    N_FILTERS = 100
+    FILTER_SIZES = [3, 4, 5]
+    OUTPUT_DIM = 1
+    DROPOUT = 0.5
+    PAD_IDX = TEXT.vocab.stoi[TEXT.pad_token]
+    model = CNN_Text(INPUT_DIM, EMBEDDING_DIM, N_FILTERS, FILTER_SIZES, OUTPUT_DIM, DROPOUT, PAD_IDX)
+    print(model)
+
+    pretrained_embeddings = TEXT.vocab.vectors
+    model.embedding.weight.data.copy_(pretrained_embeddings)
+
+    UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
+    model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
+    model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
+
+    optimizer = optim.Adam(model.parameters())
+    criterion = nn.BCEWithLogitsLoss()
+
+
+
 
 
