@@ -287,6 +287,27 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters())
     criterion = nn.BCEWithLogitsLoss()
 
+    EPOCHS = 10
+    best_val_loss = float("inf")
+    best_acc = float(0)
+    for epoch in range(EPOCHS):
+        start_time = time.time()
+        train_loss, train_acc = train_epoch(model, train_iter, optimizer, criterion)
+        val_loss, val_acc = evaluate(model, val_iter, criterion)
+        end_time = time.time()
+        print("Epoch: ", epoch+1, "|", "Epoch Time: ", end_time - start_time, "s")
+        print("Train Loss: ", train_loss, "|", "Train Acc: ", train_acc)
+        print("Val. Loss: ", val_loss, "|", "Val. Acc: ", val_acc)
+
+        if (val_loss < best_val_loss) & (val_acc > best_acc):
+            best_model_wts = copy.deepcopy(model.state_dict())
+            best_val_loss = val_loss
+            best_acc = val_acc
+
+    model.load_state_dict(best_model_wts)
+
+    test_loss, test_acc = evaluate(model, test_iter, criterion)
+    print("acc on testing dataset: ", test_acc)
 
 
 
