@@ -29,6 +29,15 @@ from sklearn.model_selection import train_test_split
 class CNN_Text(nn.Module):
     def __init__(self, vocab_size, embedding_dim, n_filters, filter_sizes, output_dim, dropout, pad_idx):
         super().__init__()
+        """
+        vocab_size: Vocabulary Dict Size
+        embedding_dim: Vocabulary Vector Dim
+        n_filters: Conv Kernel Num
+        filter_sizes: Conv Kernel Size
+        output_dim: Output Dim
+        dropout: Dropout Ratio
+        pad_idx：Padding Index
+        """
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
         self.convs = nn.ModuleList([
             nn.Conv2d(
@@ -227,11 +236,13 @@ if __name__ == '__main__':
                       batch_first=True, fix_length=200)
     LABEL = data.Field(sequential=False, use_vocab=False,
                        pad_token=None, unk_token=None)
-
+    print('TEXT:\n', TEXT)
+    print('LABEL:\n', LABEL)
     train_test_fields = [
-        ("label", LABEL),
-        ("text", TEXT)
+        ("text", TEXT),
+        ("label", LABEL)
     ]
+    print('train_test_fields:\n', train_test_fields)
     traindata, testdata = data.TabularDataset.splits(
         path="../DataFrame/IMDB", format="csv",
         train="imdb_train.csv", fields=train_test_fields,
@@ -240,7 +251,7 @@ if __name__ == '__main__':
 
     print(len(traindata), len(testdata))
     ex0 = traindata.examples[0]
-    print(ex0)
+    print(ex0.label)
     print(ex0.text)
 
     train_data, val_data = traindata.split(split_ratio=0.7)
@@ -251,8 +262,8 @@ if __name__ == '__main__':
     LABEL.build_vocab(train_data)
 
     print(TEXT.vocab.freqs.most_common(n=10))
-    print("keyword num: ", len(TEXT.vocab.itos))
-    print("10 num:\n", TEXT.vocab.itos[0:10])
+    print("Dictionary num: ", len(TEXT.vocab.itos))
+    print("Top 10 words:\n", TEXT.vocab.itos[0:10])
     print("classifica label:", LABEL.vocab.freqs)
 
     BATCH_SIZE = 32
@@ -263,9 +274,11 @@ if __name__ == '__main__':
     for step, batch in enumerate(train_iter):
         if step > 0:
             break
-    print("classifica label:\n", batch.label)
-    print("data size:", batch.text[0].shape)
-    print("data sample:", len(batch.text[1]))
+        print('step: ', step)
+        print("classifica label:\n", batch.label)
+        print("data size:", batch.text[0].shape)
+        print("data sample:", len(batch.text[1]))
+
 
     INPUT_DIM = len(TEXT.vocab)
     EMBEDDING_DIM = 100
@@ -274,40 +287,41 @@ if __name__ == '__main__':
     OUTPUT_DIM = 1
     DROPOUT = 0.5
     PAD_IDX = TEXT.vocab.stoi[TEXT.pad_token]
+    print('PAD_IDX: ', PAD_IDX)
     model = CNN_Text(INPUT_DIM, EMBEDDING_DIM, N_FILTERS, FILTER_SIZES, OUTPUT_DIM, DROPOUT, PAD_IDX)
     print(model)
-
-    pretrained_embeddings = TEXT.vocab.vectors
-    model.embedding.weight.data.copy_(pretrained_embeddings)
-
-    UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
-    model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
-    model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
-
-    optimizer = optim.Adam(model.parameters())
-    criterion = nn.BCEWithLogitsLoss()
-
-    EPOCHS = 10
-    best_val_loss = float("inf")
-    best_acc = float(0)
-    for epoch in range(EPOCHS):
-        start_time = time.time()
-        train_loss, train_acc = train_epoch(model, train_iter, optimizer, criterion)
-        val_loss, val_acc = evaluate(model, val_iter, criterion)
-        end_time = time.time()
-        print("Epoch: ", epoch+1, "|", "Epoch Time: ", end_time - start_time, "s")
-        print("Train Loss: ", train_loss, "|", "Train Acc: ", train_acc)
-        print("Val. Loss: ", val_loss, "|", "Val. Acc: ", val_acc)
-
-        if (val_loss < best_val_loss) & (val_acc > best_acc):
-            best_model_wts = copy.deepcopy(model.state_dict())
-            best_val_loss = val_loss
-            best_acc = val_acc
-
-    model.load_state_dict(best_model_wts)
-
-    test_loss, test_acc = evaluate(model, test_iter, criterion)
-    print("acc on testing dataset: ", test_acc)
+    #
+    # pretrained_embeddings = TEXT.vocab.vectors
+    # model.embedding.weight.data.copy_(pretrained_embeddings)
+    #
+    # UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
+    # model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
+    # model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
+    #
+    # optimizer = optim.Adam(model.parameters())
+    # criterion = nn.BCEWithLogitsLoss()
+    #
+    # EPOCHS = 10
+    # best_val_loss = float("inf")
+    # best_acc = float(0)
+    # for epoch in range(EPOCHS):
+    #     start_time = time.time()
+    #     train_loss, train_acc = train_epoch(model, train_iter, optimizer, criterion)
+    #     val_loss, val_acc = evaluate(model, val_iter, criterion)
+    #     end_time = time.time()
+    #     print("Epoch: ", epoch+1, "|", "Epoch Time: ", end_time - start_time, "s")
+    #     print("Train Loss: ", train_loss, "|", "Train Acc: ", train_acc)
+    #     print("Val. Loss: ", val_loss, "|", "Val. Acc: ", val_acc)
+    #
+    #     if (val_loss < best_val_loss) & (val_acc > best_acc):
+    #         best_model_wts = copy.deepcopy(model.state_dict())
+    #         best_val_loss = val_loss
+    #         best_acc = val_acc
+    #
+    # model.load_state_dict(best_model_wts)
+    #
+    # test_loss, test_acc = evaluate(model, test_iter, criterion)
+    # print("acc on testing dataset: ", test_acc)
 
 
 
