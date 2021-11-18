@@ -44,7 +44,7 @@ def train_model(model, traindataloader, testdataloader, criterion, optimizer, nu
     schedular = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
     for epoch in range(num_epoch):
-        learn_rate.append(schedular.get_lr()[0])
+        learn_rate.append(schedular.get_last_lr()[0])
         print('-' * 10)
         print('Epoch {}/{}, Lr:{}'.format(epoch, num_epoch-1, learn_rate[-1]))
         train_loss = 0.0
@@ -59,7 +59,7 @@ def train_model(model, traindataloader, testdataloader, criterion, optimizer, nu
             output = model(textdata)
             pre_lab = torch.argmax(output, 1)
             loss = criterion(output, target)
-            optimizer.zero_gard()
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             train_loss += loss.item() * len(target)
@@ -107,8 +107,8 @@ if __name__ == '__main__':
                        pad_token=None, unk_token=None)
 
     train_test_fields = [
-        ("label", LABEL),
-        ("text", TEXT)
+        ("text", TEXT),
+        ("label", LABEL)
     ]
 
     traindata, testdata = data.TabularDataset.splits(
@@ -135,8 +135,8 @@ if __name__ == '__main__':
     grumodel.embedding.weight.data.copy_(TEXT.vocab.vectors)
     UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
     PAD_IDX = TEXT.vocab.stoi[TEXT.pad_token]
-    grumodel.embedding.weight.data[UNK_IDX] = torch.zero_(vec.dim)
-    grumodel.embedding.weight.data[PAD_IDX] = torch.zero_(vec.dim)
+    grumodel.embedding.weight.data[UNK_IDX] = torch.zeros(vec.dim)
+    grumodel.embedding.weight.data[PAD_IDX] = torch.zeros(vec.dim)
 
     optimizer = optim.RMSprop(grumodel.parameters(), lr=0.003)
     loss_func = nn.CrossEntropyLoss()
