@@ -138,5 +138,37 @@ if __name__ == '__main__':
     grumodel.embedding.weight.data[UNK_IDX] = torch.zero_(vec.dim)
     grumodel.embedding.weight.data[PAD_IDX] = torch.zero_(vec.dim)
 
+    optimizer = optim.RMSprop(grumodel.parameters(), lr=0.003)
+    loss_func = nn.CrossEntropyLoss()
+    grumodel, train_proccess = train_model(grumodel, train_iter, test_iter, loss_func, optimizer, num_epoch=10)
+
+    plt.figure(figsize=(18, 6))
+    plt.subplot(1, 2, 1)
+    plt.plot(train_proccess.epoch, train_proccess.train_loss_all, "r.-", label="Train Loss")
+    plt.plot(train_proccess.epoch, train_proccess.test_loss_all, "bs-", label="Test Loss")
+    plt.legend()
+    plt.xlabel("Epoch Number", size=13)
+    plt.ylabel("Loss Value:", size=13)
+    plt.subplot(1, 2, 2)
+    plt.plot(train_proccess.epoch, train_proccess.train_acc_all, "r.-", label="Test Acc")
+    plt.plot(train_proccess.epoch, train_proccess.test_acc_all, "bs-", label="Test Acc")
+    plt.xlabel("Epoch Number", size=13)
+    plt.ylabel("Acc", size=13)
+    plt.legend()
+    plt.show()
+
+    # Testing
+    grumodel.eval()
+    test_y_all = torch.LongTensor()
+    pre_lab_all = torch.LongTensor()
+    for step, batch in enumerate(test_iter):
+        textdata, target = batch.text[0], batch.label.view(-1)
+        output = grumodel(textdata)
+        pre_lab = torch.argmax(output, 1)
+        test_y_all = torch.cat((test_y_all, target))
+        pre_lab_all = torch.cat((pre_lab_all, pre_lab))
+
+    acc = accuracy_score(test_y_all, pre_lab_all)
+    print("Acc on Testing Dataset: ", acc)
 
 
