@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
-fonts = FontProperties(fname="/Library/Fonts/华文细黑。ttf")
+fonts = FontProperties(fname=r"/System/Library/Fonts/Songti.ttc")
 import re
 import string
 import copy
@@ -108,7 +108,7 @@ def train_model(model, traindataloader, valdataloader, criterion, optimizer, num
             textdata, target = batch.cutword[0], batch.labelcode.view(-1)
             output = model(textdata)
             pre_lab = torch.argmax(output, 1)
-            loss = criterion(output, 1)
+            loss = criterion(output, target)
             val_loss += loss.item() * len(target)
             val_corrects += torch.sum(pre_lab == target.data)
             val_num += len(target)
@@ -130,7 +130,7 @@ def train_model(model, traindataloader, valdataloader, criterion, optimizer, num
     return model, train_process
 
 
-def test_model(model, testdataloader, criterion, optimizer):
+def test_model(model, testdataloader):
     model.eval()
     test_y_all = torch.LongTensor()
     pre_lab_all = torch.LongTensor()
@@ -162,7 +162,7 @@ if __name__ == '__main__':
                       include_lengths=True, use_vocab=True,
                       batch_first=True, fix_length=400)
     LABEL = data.Field(sequential=False, use_vocab=False,
-                       pad_token=None, unt_token=None)
+                       pad_token=None, unk_token=None)
 
     text_data_fields = [
         ("labelcode", LABEL),
@@ -217,5 +217,28 @@ if __name__ == '__main__':
     plt.show()
 
     test_model(lstmmodel, test_iter)
+
+    from sklearn.manifold import TSNE
+    lstmmodel = torch.load("../Module/MyLSTMNet/lstmmodel.plk")
+    word2vec = lstmmodel.embedding.weight
+    words = TEXT.vocab.itos
+    tsne = TSNE(n_components=2, random_state=123)
+    word2vec_tsne = tsne.fit_transform(word2vec.data.numpy())
+    plt.figure(figsize=(10, 8))
+    plt.scatter(word2vec_tsne[:, 0], word2vec_tsne[:, 1], s=4)
+    plt.title("word2vec distribution: ", fontproperties=fonts, size=15)
+    plt.show()
+
+    vis_word = ["中国", "市场", "公司", "美国", "记者", "学生", "游戏", "北京",
+                "投资", "电影", "银行", "工作", "留学", "大学", "经济", "产品",
+                "设计", "方面", "玩家", "学校", "学习", "房价", "专家", "楼市"]
+
+    vis_word_index = [words.index(ii) for ii in vis_word]
+    plt.figure(figsize=(10, 8))
+    for ii, index in enumerate(vis_word_index):
+        plt.autoscale(word2vec_tsne[index, 0], word2vec_tsne[index, 1])
+        plt.text(word2vec_tsne[index, 0], word2vec_tsne[index, 1], vis_word[ii], fontproperties=fonts)
+        plt.title("word2vec distribution: ", fontproperties=fonts, size=15)
+        plt.show()
 
 
